@@ -53,3 +53,6 @@ class ParentNode(HTMLNode):
                 
         props_str = self.props_to_html()
         return f"<{self.tag}{' ' + props_str if props_str else ''}>{result}</{self.tag}>"
+
+    def __repr__(self):
+        return f"ParentNode({self.tag}, children: {self.children}, {self.props})"
