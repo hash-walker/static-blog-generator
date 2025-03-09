@@ -1,6 +1,8 @@
 import re
-from textnode import TextNode, TextType
+from textnode import TextNode, TextType, text_node_to_html_node
 from inline_markdown import split_nodes_delimiter
+from markdown_to_blocks import markdown_to_blocks, block_to_block_type, BlockType
+from htmlnode import ParentNode, LeafNode
 
 def extract_markdown_images(text):
     """
@@ -141,6 +143,7 @@ def text_to_textnodes(text):
     Returns:
         list[TextNode]: List of TextNode objects representing the text
     """
+
     nodes = [TextNode(text, TextType.TEXT)]
     
     # Split on delimiters for basic markdown
@@ -153,3 +156,110 @@ def text_to_textnodes(text):
     nodes = split_nodes_link(nodes)
     
     return nodes 
+
+def text_to_children(text):
+    nodes = text_to_textnodes(text)
+
+    return [text_node_to_html_node(node) for node in nodes]
+
+def extract_heading_level(block):
+    matches = re.match(r"#{1,6}", block.strip())
+    return len(matches[0])
+
+def extract_list_items(block):
+    """Extract list items from a list block."""
+    lines = block.split("\n")
+    items = []
+    for line in lines:
+        line = line.strip()
+        # For ordered list, remove the number and dot
+        match = re.match(r"(\d+)[.)]", line)
+        if match:
+            line = line[len(match[0])+1:]
+        # For unordered list, remove the dash
+        else:
+            line = line[2:]  # Remove "- "
+        items.append(line)
+    return items
+
+import textwrap
+
+def extract_code_block_content(block):
+    """Extract the content from a code block, preserving indentation correctly."""
+    lines = block.split("\n")
+    if len(lines) < 3:  # Minimum: ```\ncontent\n```
+        return ""
+        
+    # Remove first and last lines (```)
+    content_lines = lines[1:-1]
+    
+    # Add proper indentation for Python code
+    indented_lines = []
+    for line in content_lines:
+        if ":" in line:  # Line that starts a new block
+            indented_lines.append(line)
+        else:
+            # Indent non-empty lines that follow a block
+            if line.strip() and indented_lines and ":" in indented_lines[-1]:
+                indented_lines.append("    " + line)
+            else:
+                indented_lines.append(line)
+    
+    # Join the lines and ensure trailing newline
+    return "\n".join(indented_lines) + "\n"
+
+def block_to_html_node(block):
+    block_type = block_to_block_type(block)
+
+    if block_type == BlockType.PARAGRAPH:
+        text = " ".join(line for line in block.split("\n"))
+        return ParentNode("p", text_to_children(text))
+    
+    elif block_type == BlockType.HEADING:
+        level = extract_heading_level(block)
+        text = block[level+1:]
+        return ParentNode(f"h{level}", text_to_children(text))
+    
+    elif block_type == BlockType.CODE:
+        content = extract_code_block_content(block)
+        code_node = LeafNode("code", content)
+        return ParentNode("pre", [code_node])
+    
+    elif block_type == BlockType.QUOTE:
+        text = " ".join(line[1:].strip() for line in block.split("\n"))
+
+        return ParentNode("quote", text_to_children(text))
+
+
+    
+    elif block_type == BlockType.UNORDERED_LIST:
+        items = extract_list_items(block)
+        item_nodes = [
+            ParentNode("li", text_to_children(item))
+            for item in items
+        ]
+
+        return ParentNode("ul", item_nodes)
+    
+    elif block_type == BlockType.ORDERED_LIST:
+        items = extract_list_items(block)
+        item_nodes = [
+            ParentNode("li", text_to_children(item))
+            for item in items
+        ]
+        return ParentNode("ol", item_nodes)
+        
+    raise ValueError(f"Invalid block type: {block_type}")
+    
+
+
+def markdown_to_htmlnode(markdown):
+    blocks = markdown_to_blocks(markdown)
+    childrens = []
+    for block in blocks:
+        
+        if block.strip():
+            node = block_to_html_node(block)
+            childrens.append(node)
+
+    return ParentNode("div", childrens)

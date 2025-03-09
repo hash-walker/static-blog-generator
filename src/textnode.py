@@ -53,7 +53,3 @@ def text_node_to_html_node(text_node):
         return LeafNode("img", "", {"src": text_node.url, "alt": text_node.text})
     else:
         raise ValueError(f"Invalid text type: {text_node.text_type}")
-
-text = "This is **bold** with an ![image](url) and a [link](url)"
-nodes = text_to_textnodes(text)
-# Returns list of TextNodes with appropriate types and properties

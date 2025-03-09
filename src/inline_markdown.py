@@ -2,54 +2,55 @@ from textnode import TextNode, TextType
 
 def split_nodes_delimiter(old_nodes, delimiter, text_type):
     """
-    Split text nodes based on a delimiter and convert the delimited text to a specific type.
+    Split text nodes based on a delimiter.
     
     Args:
         old_nodes (list[TextNode]): List of nodes to process
-        delimiter (str): The delimiter to split on (e.g. **, _, `)
-        text_type (TextType): The type to assign to delimited text
+        delimiter (str): The delimiter to split on (e.g., "**" for bold)
+        text_type (TextType): The type to assign to text between delimiters
         
     Returns:
-        list[TextNode]: New list of nodes with text split on delimiters
+        list[TextNode]: New list of nodes with text between delimiters assigned the specified type
         
     Raises:
-        ValueError: If a closing delimiter is not found
+        ValueError: If there are unclosed delimiters
     """
     new_nodes = []
     
-    # Process each node in the input list
     for old_node in old_nodes:
         # If the node is not a text node, keep it as is
         if old_node.text_type != TextType.TEXT:
             new_nodes.append(old_node)
             continue
-        
+            
         # Split the text on the delimiter
-        pieces = old_node.text.split(delimiter)
+        sections = old_node.text.split(delimiter)
         
-        # If no delimiter was found, keep the node as is
-        if len(pieces) == 1:
+        # If there's no delimiter, keep the node as is
+        if len(sections) == 1:
             new_nodes.append(old_node)
             continue
             
-        # Ensure we have matching pairs of delimiters
-        if len(pieces) % 2 == 0:
-            raise ValueError(
-                f"Invalid markdown: Unclosed delimiter {delimiter}"
-            )
+        # Check for unclosed delimiters
+        if len(sections) % 2 == 0:
+            raise ValueError(f"Unclosed delimiter {delimiter}")
             
-        # Process the pieces
-        for i in range(len(pieces)):
-            piece = pieces[i]
-            # Skip empty pieces
-            if not piece:
+        current_nodes = []
+        # Process the sections
+        for i in range(len(sections)):
+            # Skip empty sections at the start or end
+            if not sections[i] and (i == 0 or i == len(sections) - 1):
                 continue
                 
-            # Every second piece (1-based index) is delimited
+            # If we're in between delimiters (odd index)
             if i % 2 == 1:
-                new_node = TextNode(piece, text_type)
+                if sections[i]:
+                    current_nodes.append(TextNode(sections[i], text_type))
             else:
-                new_node = TextNode(piece, TextType.TEXT)
-            new_nodes.append(new_node)
-            
+                current_nodes.append(TextNode(sections[i], TextType.TEXT))
+                
+        # Only add nodes if we found some
+        if current_nodes:
+            new_nodes.extend(current_nodes)
+                
     return new_nodes 
