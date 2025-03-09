@@ -1,7 +1,8 @@
 import os
+import sys
 import shutil
 import logging
-from page import generate_page
+from page import generate_pages_recursive
 
 # Set up logging
 logging.basicConfig(
@@ -42,56 +43,28 @@ def copy_directory(src, dst):
             logging.info(f"Copying directory: {src_path} -> {dst_path}")
             copy_directory(src_path, dst_path)
 
-def process_markdown_files(content_dir, public_dir, template_path):
-    """
-    Process all markdown files in the content directory and its subdirectories.
-    
-    Args:
-        content_dir (str): Content directory path
-        public_dir (str): Public directory path
-        template_path (str): Template file path
-    """
-    for root, dirs, files in os.walk(content_dir):
-        for file in files:
-            if file.endswith('.md'):
-                # Get the markdown file path
-                md_path = os.path.join(root, file)
-                
-                # Calculate the relative path from content_dir
-                rel_path = os.path.relpath(md_path, content_dir)
-                
-                # Convert the path to HTML
-                html_path = os.path.join(
-                    public_dir,
-                    os.path.splitext(rel_path)[0] + '.html'
-                )
-                
-                # Create the directory if it doesn't exist
-                os.makedirs(os.path.dirname(html_path), exist_ok=True)
-                
-                # Generate the HTML page
-                logging.info(f"Generating page from {md_path} to {html_path}")
-                generate_page(md_path, template_path, html_path)
-
 def main():
     """Main function to generate the static site."""
+    # Get the base path from command line argument or use default
+    base_path = sys.argv[1] if len(sys.argv) > 1 else "/"
+    
     # Get the root directory (parent of src)
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     
     # Define paths
     static_dir = os.path.join(root_dir, "static")
-    public_dir = os.path.join(root_dir, "public")
+    docs_dir = os.path.join(root_dir, "docs")  # Changed from public to docs
     content_dir = os.path.join(root_dir, "content")
     template_path = os.path.join(root_dir, "template.html")
     
     # Copy static files
     logging.info("Starting static file copy")
-    copy_directory(static_dir, public_dir)
+    copy_directory(static_dir, docs_dir)  # Changed from public to docs
     logging.info("Finished static file copy")
     
-    # Generate HTML pages
+    # Generate HTML pages recursively
     logging.info("Generating HTML pages")
-    process_markdown_files(content_dir, public_dir, template_path)
+    generate_pages_recursive(content_dir, template_path, docs_dir, base_path)  # Added base_path
     logging.info("Finished generating HTML pages")
 
 if __name__ == "__main__":
